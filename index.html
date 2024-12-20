@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shri Hariharnath Provision Store</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .form-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .weight-prices {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .delete-btn {
+            background-color: #ff4444;
+        }
+
+        .delete-btn:hover {
+            background-color: #cc0000;
+        }
+
+        .import-export {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Shri Hariharnath Provision Store</h1>
+        
+        <div class="form-container">
+            <h2>Add New Product</h2>
+            <form id="productForm">
+                <div class="form-group">
+                    <label for="name">Product Name:</label>
+                    <input type="text" id="name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="unitType">Unit Type:</label>
+                    <select id="unitType">
+                        <option value="kg">Kilogram (kg)</option>
+                        <option value="piece">Piece</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="price">Price (₹):</label>
+                    <input type="number" id="price" step="0.01" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="quantity">Quantity:</label>
+                    <input type="number" id="quantity" step="0.01" required>
+                </div>
+
+                <button type="submit">Add Product</button>
+            </form>
+        </div>
+
+        <table id="productTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Unit Type</th>
+                    <th>Price</th>
+                    <th>Quantity</th>
+                    <th>Weight Prices</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <div class="import-export">
+            <button onclick="exportToCSV()">Export to CSV</button>
+            <input type="file" id="importFile" accept=".csv" style="display: none;">
+            <button onclick="document.getElementById('importFile').click()">Import from CSV</button>
+        </div>
+    </div>
+
+    <script>
+        class Product {
+            constructor(name, unitType, price, quantity) {
+                this.name = name;
+                this.unitType = unitType;
+                this.price = parseFloat(price);
+                this.quantity = parseFloat(quantity);
+            }
+
+            calculateWeightPrices() {
+                if (this.unitType === 'kg') {
+                    return {
+                        '10gm': this.price * (10/1000),
+                        '50gm': this.price * (50/1000),
+                        '250gm': this.price * (250/1000),
+                        '500gm': this.price * (500/1000),
+                        '1kg': this.price
+                    };
+                }
+                return null;
+            }
+        }
+
+        let products = [];
+
+        document.getElementById('productForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('name').value;
+            const unitType = document.getElementById('unitType').value;
+            const price = document.getElementById('price').value;
+            const quantity = document.getElementById('quantity').value;
+
+            const product = new Product(name, unitType, price, quantity);
+            products.push(product);
+            updateTable();
+            this.reset();
+        });
+
+        document.getElementById('importFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(event) {
+                const csvData = event.target.result;
+                const lines = csvData.split('\n');
+                
+                // Skip header row
+                for(let i = 1; i < lines.length; i++) {
+                    if(lines[i].trim() === '') continue;
+                    
+                    const [name, unitType, price, quantity] = lines[i].split(',');
+                    const product = new Product(name, unitType, price, quantity);
+                    products.push(product);
+                }
+                updateTable();
+            };
+            
+            reader.readAsText(file);
+        });
+
+        function updateTable() {
+            const tbody = document.querySelector('#productTable tbody');
+            tbody.innerHTML = '';
+
+            products.forEach((product, index) => {
+                const row = tbody.insertRow();
+                
+                row.insertCell(0).textContent = product.name;
+                row.insertCell(1).textContent = product.unitType;
+                row.insertCell(2).textContent = `₹${product.price}`;
+                row.insertCell(3).textContent = product.quantity;
+
+                const weightPricesCell = row.insertCell(4);
+                const weightPrices = product.calculateWeightPrices();
+                if (weightPrices) {
+                    let pricesHtml = '<div class="weight-prices">';
+                    for (const [weight, price] of Object.entries(weightPrices)) {
+                        pricesHtml += `${weight}: ₹${price.toFixed(2)}<br>`;
+                    }
+                    pricesHtml += '</div>';
+                    weightPricesCell.innerHTML = pricesHtml;
+                } else {
+                    weightPricesCell.textContent = 'N/A';
+                }
+
+                const actionsCell = row.insertCell(5);
+                actionsCell.innerHTML = `
+                    <div class="action-buttons">
+                        <button onclick="updateQuantity(${index}, 1)">+</button>
+                        <button onclick="updateQuantity(${index}, -1)">-</button>
+                        <button class="delete-btn" onclick="deleteProduct(${index})">Delete</button>
+                    </div>
+                `;
+            });
+        }
+
+        function updateQuantity(index, change) {
+            products[index].quantity += change;
+            if (products[index].quantity < 0) products[index].quantity = 0;
+            updateTable();
+        }
+
+        function deleteProduct(index) {
+            products.splice(index, 1);
+            updateTable();
+        }
+
+        function exportToCSV() {
+            let csv = 'Name,Unit Type,Base Price,Quantity,10gm Price,50gm Price,250gm Price,500gm Price,1kg Price\n';
+            
+            products.forEach(product => {
+                let row = `${product.name},${product.unitType},${product.price},${product.quantity}`;
+                
+                if (product.unitType === 'kg') {
+                    const weightPrices = product.calculateWeightPrices();
+                    row += `,${weightPrices['10gm'].toFixed(2)}`;
+                    row += `,${weightPrices['50gm'].toFixed(2)}`;
+                    row += `,${weightPrices['250gm'].toFixed(2)}`;
+                    row += `,${weightPrices['500gm'].toFixed(2)}`;
+                    row += `,${weightPrices['1kg'].toFixed(2)}`;
+                } else {
+                    row += ',N/A,N/A,N/A,N/A,N/A';
+                }
+                
+                csv += row + '\n';
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            a.setAttribute('download', `inventory_${timestamp}.csv`);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    </script>
+</body>
+</html>
